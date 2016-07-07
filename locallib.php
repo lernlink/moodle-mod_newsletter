@@ -302,10 +302,14 @@ class mod_newsletter implements renderable {
             break;
         case NEWSLETTER_ACTION_SUBSCRIBE:
             require_capability('mod/newsletter:manageownsubscription', $this->context);
-            $this->subscribe();
-            $url = new moodle_url('/mod/newsletter/view.php', array('id' => $this->get_course_module()->id));
-            redirect($url);
-            break;
+			if($this->get_subscription_status($this->get_subid()) == NEWSLETTER_SUBSCRIBER_STATUS_UNSUBSCRIBED) {				
+				$output = $this->display_resubscribe_form($params);
+			} else {
+				$this->subscribe();
+				$url = new moodle_url('/mod/newsletter/view.php', array('id' => $this->get_course_module()->id));
+				redirect($url);
+			}
+			break;
         case NEWSLETTER_ACTION_UNSUBSCRIBE:
             require_capability('mod/newsletter:manageownsubscription', $this->context);
             $this->unsubscribe($this->get_subid());
@@ -348,7 +352,7 @@ class mod_newsletter implements renderable {
 				NEWSLETTER_PARAM_ACTION => NEWSLETTER_ACTION_GUESTSUBSCRIBE 
 		) );
 		
-		if ($mform->is_cancelled () || isloggedin () || !isguestuser()) {
+		if ($mform->is_cancelled()) {
 			redirect ( new moodle_url ( 'view.php', array (
 					'id' => $this->get_course_module ()->id,
 					NEWSLETTER_PARAM_ACTION => NEWSLETTER_ACTION_VIEW_NEWSLETTER 
@@ -363,12 +367,64 @@ class mod_newsletter implements renderable {
 			) );
 			$output .= html_writer::link($url, get_string('continue'), array ('class' => 'btn mdl-align')) ;
 			return $output;
-		} else if ($this->get_config ()->allow_guest_user_subscriptions && (!isloggedin () || isguestuser())) {
+		} else if ($this->get_instance ()->allowguestusersubscriptions && (!isloggedin() || isguestuser())) {
 			$output .= $renderer->render ( new newsletter_form ( $mform, null ) );
 			$output .= $renderer->render_footer ();
 			return $output;
 		}
 	}
+
+    /**
+     * display a resubscription form for users who are unsubscribed and want to subscribe again. 
+     * 
+     * @param array $params url params passed as get variables
+     * @return string html rendered resubscription
+     */
+	private function display_resubscribe_form(array $params) {
+		global $PAGE, $USER;
+		$PAGE->requires->js_module($this->get_js_module());
+		$output = '';
+		$renderer = $this->get_renderer ();
+
+		require_once (dirname ( __FILE__ ) . '/resubscribe_form.php');
+		
+		$output .= $renderer->render ( new newsletter_header ( $this->get_instance (), $this->get_context (), false, $this->get_course_module ()->id ) );
+		$mform = new mod_newsletter_resubscribe_form ( null, array (
+				'id' => $this->get_course_module ()->id,
+				NEWSLETTER_PARAM_ACTION => NEWSLETTER_ACTION_SUBSCRIBE 
+		) );
+		
+		if ($mform->is_cancelled()) {
+			redirect ( new moodle_url ( 'view.php', array (
+					'id' => $this->get_course_module ()->id,
+					NEWSLETTER_PARAM_ACTION => NEWSLETTER_ACTION_VIEW_NEWSLETTER 
+			) ) );
+			return;
+		} else if ($data = $mform->get_data()) {
+			if($data->resubscribe_confirmation) {	
+				$this->subscribe(0, false, NEWSLETTER_SUBSCRIBER_STATUS_OK, true, 0);
+				$output .= html_writer::div('&nbsp;');
+				$output .= html_writer::div(get_string('resubscriptionsuccess', 'mod_newsletter'));
+				$output .= html_writer::div('&nbsp;');
+				$url = new moodle_url ( '/mod/newsletter/view.php', array (
+						'id' => $this->get_course_module ()->id 
+				) );
+				$output .= html_writer::link($url, get_string('continue'), array ('class' => 'btn mdl-align')) ;
+				$output .= $renderer->render_footer ();
+				return $output;
+			} else {
+				redirect ( new moodle_url ( 'view.php', array (
+						'id' => $this->get_course_module ()->id,
+						NEWSLETTER_PARAM_ACTION => NEWSLETTER_ACTION_VIEW_NEWSLETTER 
+				) ) );				
+			}
+		} else {
+			$output .= $renderer->render ( new newsletter_form ( $mform, null ) );
+			$output .= $renderer->render_footer ();
+			return $output;
+		}
+	}
+
 	
     /**
      * Display all newsletter issues in a view. Display action links
@@ -394,7 +450,7 @@ class mod_newsletter implements renderable {
                                 $params[NEWSLETTER_PARAM_GROUP_BY],
                                 has_capability('mod/newsletter:createissue', $this->context),
                                 has_capability('mod/newsletter:managesubscriptions', $this->context)));
-        
+								
         if (has_capability('mod/newsletter:manageownsubscription', $this->context) && $this->instance->subscriptionmode != NEWSLETTER_SUBSCRIPTION_MODE_FORCED) {
         	if (!$this->is_subscribed()) {
         		$url = new moodle_url('/mod/newsletter/view.php',
@@ -416,7 +472,7 @@ class mod_newsletter implements renderable {
         	} else {
         		$guestsignup_possible = false;
         	}
-        	if ($this->get_config()->allow_guest_user_subscriptions && (!isloggedin() || isguestuser()) && $guestsignup_possible) {
+        	if ($this->get_instance ()->allowguestusersubscriptions && (!isloggedin() || isguestuser()) && $guestsignup_possible) {
         		$url = new moodle_url('/mod/newsletter/view.php',
         				array(NEWSLETTER_PARAM_ID => $this->get_course_module()->id,
         						NEWSLETTER_PARAM_ACTION => NEWSLETTER_ACTION_GUESTSUBSCRIBE));
@@ -447,6 +503,7 @@ class mod_newsletter implements renderable {
         if(!(has_capability('mod/newsletter:editissue', $this->get_context())) && $this->get_issue($params[NEWSLETTER_PARAM_ISSUE])->publishon > time()){
         	require_capability('mod/newsletter:editissue', $this->get_context());
         }
+		
         
         $renderer = $this->get_renderer();
 
@@ -457,14 +514,19 @@ class mod_newsletter implements renderable {
                         false,
                         $this->get_course_module()->id));
         $currentissue = $this->get_issue($params[NEWSLETTER_PARAM_ISSUE]);
+
+		if(has_capability('mod/newsletter:editissue', $this->get_context())) {
+			$url = new moodle_url('/mod/newsletter/view.php', array(NEWSLETTER_PARAM_ID => $this->get_course_module()->id, 'action' => NEWSLETTER_ACTION_EDIT_ISSUE, NEWSLETTER_PARAM_ISSUE => $currentissue->id));
+			$output .= $renderer->render(new newsletter_action_link($url, get_string('edit_issue', 'mod_newsletter'), 'btn'));
+		}
+
         $navigation_bar = new newsletter_navigation_bar(
                                 $currentissue,
                                 $this->get_first_issue($currentissue),
                                 $this->get_previous_issue($currentissue),
                                 $this->get_next_issue($currentissue),
                                 $this->get_last_issue($currentissue));
-        $output .= $renderer->render($navigation_bar);
-        
+        $output .= $renderer->render($navigation_bar); 
         
         // generate table of content
         require_once $CFG->dirroot . "/mod/newsletter/classes/issue_parser.php";
@@ -475,7 +537,6 @@ class mod_newsletter implements renderable {
         $currentissue->htmlcontent = file_rewrite_pluginfile_urls($currentissue->htmlcontent, 'pluginfile.php', $this->get_context()->id, 'mod_newsletter', NEWSLETTER_FILE_AREA_ISSUE, $params[NEWSLETTER_PARAM_ISSUE],  mod_newsletter_issue_form::editor_options($this->get_context(), $params[NEWSLETTER_PARAM_ISSUE]) );
         $currentissue->htmlcontent = $this->inline_css($currentissue->htmlcontent, $currentissue->stylesheetid);
         
-
         $output .= $renderer->render(new newsletter_issue($currentissue));
 
         $fs = get_file_storage();
@@ -484,7 +545,14 @@ class mod_newsletter implements renderable {
             $file->link = file_encode_url($CFG->wwwroot.'/pluginfile.php', '/'.$this->get_context()->id.'/mod_newsletter/attachment/'.$currentissue->id.'/'.$file->get_filename());
         }
 
-        $output .= $renderer->render(new newsletter_attachment_list($files));
+		if(!empty($files)) {
+        	$output .= $renderer->render(new newsletter_attachment_list($files));
+		} else {
+        	$output .= $renderer->render_newsletter_attachment_list_empty();
+		}
+ 		if(has_capability('mod/newsletter:editissue', $this->get_context())) {
+	 		$output .= $renderer->render(new newsletter_action_link($url, get_string('edit_issue', 'mod_newsletter'), 'btn')); 
+		}
         $output .= $renderer->render($navigation_bar);
         $output .= $renderer->render_footer();
         
@@ -717,7 +785,7 @@ class mod_newsletter implements renderable {
         }
         
         require_once(dirname(__FILE__).'/classes/subscription/newsletter_user_subscription.php');
-        $subscriberselector = new \mod_newsletter\subscription\mod_newsletter_potential_subscribers('subsribeusers', array('newsletterid' => $this->get_instance()->id));
+        $subscriberselector = new \mod_newsletter\subscription\mod_newsletter_potential_subscribers('subsribeusers', array('courseid' => $this->get_course()->id, 'newsletterid' => $this->get_instance()->id));
         $subscribedusers = new \mod_newsletter\subscription\mod_newsletter_existing_subscribers('subscribedusers', array('newsletterid' => $this->get_instance()->id, 'newsletter' => $this));
         
         if(optional_param('add', false, PARAM_BOOL) && confirm_sesskey()){
@@ -898,7 +966,7 @@ class mod_newsletter implements renderable {
         case NEWSLETTER_GROUP_ISSUES_BY_WEEK:
             $from = strtotime(date('o-\\WW', $firstissue->publishon));
             $to = strtotime("next monday", $from);
-            $dateformat = "Week %W of year %Y";
+            $dateformat = get_string("week") . " %W/%Y";
             $datefromto = "%d. %B %Y";
             break;
         }
@@ -911,11 +979,11 @@ class mod_newsletter implements renderable {
             		$currentissuelist->add_issue_summary(new newsletter_issue_summary($issue, $editissue, $deleteissue));
             	}
             } else {
-                if ($groupby == NEWSLETTER_GROUP_ISSUES_BY_WEEK) {
-                    $heading = userdate($from, $dateformat) . ' (' . userdate($from, $datefromto) . ' - ' . userdate(strtotime('yesterday', $to), $datefromto) . ')';
-                } else {
-                    $heading = userdate($from, $dateformat);
-                }
+				if ($groupby == NEWSLETTER_GROUP_ISSUES_BY_WEEK) {
+					$heading = userdate($from, $dateformat) . ' (' . userdate($from, $datefromto) . ' - ' . userdate(strtotime('yesterday', $to), $datefromto) . ')';
+				} else {
+					$heading = userdate($from, $dateformat);
+				}
 				switch ($groupby) {
 				case NEWSLETTER_GROUP_ISSUES_BY_YEAR:
 					list($from, $to) = $this->get_year_from_to_issuelist($issue->publishon);
@@ -929,11 +997,13 @@ class mod_newsletter implements renderable {
 				case NEWSLETTER_GROUP_ISSUES_BY_WEEK:
 					$from = strtotime(date('o-\\WW', $issue->publishon));
 					$to = strtotime("next monday", $from);
-					$dateformat = "Week %W of year %Y";
+					$dateformat = get_string("week") . " %W/%Y";
 					$datefromto = "%d. %B %Y";
 					break;
 				}
-                $sectionlist->add_issue_section(new newsletter_section($heading, $currentissuelist));
+				if (!empty($currentissuelist->issues)) {
+					$sectionlist->add_issue_section(new newsletter_section($heading, $currentissuelist));
+				}				
                 $currentissuelist = new newsletter_issue_summary_list();
             	if (!($issue->publishon > time() && !$editissue)){  // do not display issues that are not yet published
             		$currentissuelist->add_issue_summary(new newsletter_issue_summary($issue, $editissue, $deleteissue));
@@ -1368,7 +1438,19 @@ class mod_newsletter implements renderable {
             	$sub->health = NEWSLETTER_SUBSCRIBER_STATUS_OK;
             	$sub->timestatuschanged = $now;
             	$sub->subscriberid = $USER->id;
-            	return $DB->update_record('newsletter_subscriptions', $sub);
+            	$result = $DB->update_record('newsletter_subscriptions', $sub);
+				if ($result){
+					$params = array(
+							'context' => $this->get_context(),
+							'objectid' => $sub->id,
+							'relateduserid' => $userid,
+							'other' => array('newsletterid' => $sub->newsletterid),
+					
+					);
+					$event  = \mod_newsletter\event\subscription_resubscribed::create($params);
+					$event->trigger();
+				}
+				return $result;
             } else {
             	return false;
             }
@@ -1607,7 +1689,7 @@ class mod_newsletter implements renderable {
         $cm = $this->get_course_module();
         $newslettername = $DB->get_field('newsletter', 'name', array('id' => $cm->instance));
 
-        $data = "{$secret}-{$user->id}-{$cm->instance}";
+        $data = "{$secret}-{$user->id}-{$cm->instance}-guest";
         $activateurl = new moodle_url('/mod/newsletter/confirm.php', array(NEWSLETTER_PARAM_DATA => $data));
 
         $site = get_site();

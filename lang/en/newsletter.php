@@ -44,6 +44,7 @@ $string['eventsubscriptiondeleted'] = 'Newsletter subscription deleted';
 $string['eventsubscriptionunsubscribed'] = 'Newsletter subscription unsubscribed';
 $string['eventissueviewed'] = 'Newsletter issue viewed';
 $string['eventsubscriptionsviewed'] = 'Newsletter subscriptions viewed';
+$string['eventsubscriptionresubscribed'] = 'Re-subscription to newsletter';
 
 $string['edit_issue'] = 'Edit this issue';
 $string['delete_issue'] = 'Delete this issue';
@@ -61,6 +62,7 @@ $string['mode_group_by_week'] = 'Group issues by week';
 
 $string['attachments'] = 'Attachments';
 $string['attachments_help'] = 'Upload files you want to deliver with this issue as attachments.';
+$string['attachments_no'] = 'No Attachments uploaded.';
 
 $string['delete_all_subscriptions'] = 'Delete all subscriptions';
 
@@ -96,7 +98,7 @@ $string['default_stylesheet'] = 'Default stylesheet';
 
 $string['header_email'] = 'E-Mail';
 $string['header_name'] = 'Name';
-$string['header_health'] = 'Status';
+$string['header_health'] = 'Status (Bounces)';
 $string['header_actions'] = 'Actions';
 $string['header_timesubscribed'] = 'Subscription date';
 $string['header_timestatuschanged'] = 'Last status change';
@@ -119,6 +121,9 @@ $string['page_last'] = 'Last';
 
 $string['subscribe'] = 'Subscribe';
 $string['guestsubscribe'] = 'Subscribe now!';
+$string['resubscribe'] = 'Confirm re-subscription';
+$string['resubscribe_text'] = 'You have been unsubscribed from this newsletter. Do you really want to resubscribe?';
+$string['resubscribe_btn'] = 'Confirm';
 
 $string['subscribe_question'] = 'Would you like to subscribe to newsletter "{$a->name}" using the e-mail address "{$a->email}"?';
 $string['unsubscribe_question'] = 'Would you like to unsubscribe your e-mail address "{$a->email}" from newsletter "{$a->name}"?';
@@ -156,8 +161,7 @@ $string['account_already_confirmed'] = 'Your account has already been enabled.
 To proceed to the newsletter, click {$a->newsletterlink}.';
 $string['allusers'] = 'Users (including unsubscribed): ';
 $string['filteredusers'] = 'Filtered users: ';
-
-
+$string['groupby'] = 'Group issues by:';
 
 $string['unsubscribe_link_text'] = 'Click here to unsubscribe';
 $string['unsubscribe_link'] = '<hr /><p><a href="{$a->link}">{$a->text}</a></p>';
@@ -172,8 +176,12 @@ $string['edit_subscription_title'] = 'Edit subscription';
 $string['subscribe'] = 'Subscribe';
 $string['unsubscribe'] = 'Unsubscribe';
 
-$string['allow_guest_user_subscriptions_label'] = 'Allow guest user subscription';
-$string['allow_guest_user_subscriptions_desc'] = 'Enable to allow guest users to subscribe to newsletters on this site. This will necessitate their creating user accounts.';
+$string['allowguestusersubscriptions'] = 'Allow guest user subscription';
+$string['allowguestusersubscriptions_help'] = 'Enable to allow guest users to subscribe to newsletters on this site. This will necessitate their creating user accounts.';
+$string['welcomemessage'] = 'Welcome message';
+$string['welcomemessage_help'] = 'This text will be presented to a user after he had enrolled successfully for a newsletter.';
+$string['welcomemessageguestuser'] = 'Welcome message guest user';
+$string['welcomemessageguestuser_help'] = 'This text will be displayed to a new user after he had enrolled successfully AS A GUESTUSER for a newsletter.';
 
 $string['newsletter:viewnewsletter'] = 'View newsletter';
 $string['newsletter:addinstance'] = 'Add a newsletter';
@@ -193,6 +201,7 @@ $string['newsletter:viewnewsletter'] = 'View a newsletter instance';
 
 $string['emailexists'] = 'A user account with this e-mail address already exists. Please login in order to subscribe to the newsletter. If you forgot your login, use the {$a} link on the login page to recover it.';
 $string['guestsubscriptionsuccess'] = 'Your email was successfully registered. <br /> In order to activate the subscription, please check the inbox of your mailaccount ({$a}) and click on the confirmation link';
+$string['resubscriptionsuccess'] = 'You was successfully re-subscribed.';
 
 $string['readonline'] = 'View web version';
 $string['subscribercandidatesmatching'] = 'Matching users for ({$a})';
@@ -202,6 +211,7 @@ $string['subscribedusers'] = 'Subscribed users';
 $string['cohortmanagement'] = 'Subscribe/Unsubscribe cohorts';
 $string['cohortsavailable'] = 'Available cohorts';
 $string['welcometonewsletter'] = 'Welcome to the newsletter';
+$string['welcometonewsletter_guestsubscription'] = 'Welcome to the newsletter!<br />You can unsubscribe anytime by clicking on the unsubscribe-button after login or on the unsubscribe link in every newsletter issue.';
 $string['unsubscribedinfo'] = 'Users marked with (!) are unsubscribed';
 $string['toc_header'] = 'Table of Content';
 $string['toc_no'] = 'Do not autogenerate a table of content';

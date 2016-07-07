@@ -214,7 +214,7 @@ class mod_newsletter_renderer extends plugin_renderer_base {
         $output = '';
         $output .= html_writer::start_tag('div');
         $output .= html_writer::start_tag('span');
-        $output .= 'Group issues by';
+        $output .= get_string('groupby', 'mod_newsletter');
         $output .= html_writer::end_tag('span');
         $options = array(
             NEWSLETTER_GROUP_ISSUES_BY_YEAR => get_string('year'),
@@ -344,6 +344,7 @@ class mod_newsletter_renderer extends plugin_renderer_base {
                     break;
                 case NEWSLETTER_SUBSCRIPTION_LIST_COLUMN_HEALTH:
                     $content = get_string("health_{$subscription->health}", 'newsletter'); // TODO add health icons
+					$content .= " (". $this->newsletter_count_bounces($subscription->newsletterid, $subscription->userid) . ")";
                     break;
                 case NEWSLETTER_SUBSCRIPTION_LIST_COLUMN_TIMESUBSCRIBED:
                 	$content = userdate($subscription->timesubscribed,get_string('strftimedate'));
@@ -353,12 +354,12 @@ class mod_newsletter_renderer extends plugin_renderer_base {
                             array(NEWSLETTER_PARAM_ID => $list->cmid,
                                   NEWSLETTER_PARAM_ACTION => NEWSLETTER_ACTION_EDIT_SUBSCRIPTION,
                                   NEWSLETTER_PARAM_SUBSCRIPTION => $subscription->id));
-                    $content = $this->render(new newsletter_action_link($url, get_string('edit')));
+                    $content = $this->render(new newsletter_action_link($url, get_string('edit'), 'btn-small'));
                     $url = new moodle_url('/mod/newsletter/view.php',
                             array(NEWSLETTER_PARAM_ID => $list->cmid,
                                   NEWSLETTER_PARAM_ACTION => NEWSLETTER_ACTION_DELETE_SUBSCRIPTION,
                                   NEWSLETTER_PARAM_SUBSCRIPTION => $subscription->id));
-                    $content .= $this->render(new newsletter_action_link($url, get_string('delete')));
+                    $content .= $this->render(new newsletter_action_link($url, get_string('delete'), 'btn-small'));
                     break;
                 default:
                     print_error('Unsupported column type: ' . $column);
@@ -394,6 +395,20 @@ class mod_newsletter_renderer extends plugin_renderer_base {
         $sec = intval($time % $secsinmin);
         return array($days, $hrs, $min, $sec);
     }
+	
+	private function newsletter_count_bounces($newsletterid, $userid) {
+		global $DB;
+
+		$bounces = 0;
+        $sql = "SELECT count(*) 
+		        FROM {newsletter_issues} ni
+				INNER JOIN {newsletter_bounces} nb on ni.id = nb.issueid
+		        WHERE ni.newsletterid = :newsletterid
+		        AND nb.userid = :userid";
+        $params = array('newsletterid' => $newsletterid, 'userid' => $userid);
+        $bounces = $DB->count_records_sql($sql, $params);
+		return $bounces;
+	}
 
     public function render_newsletter_pager(newsletter_pager $pager) {
         $url = $pager->url;
@@ -476,6 +491,18 @@ class mod_newsletter_renderer extends plugin_renderer_base {
         $output .= html_writer::end_tag('div');
         return $output;
     }
+
+    public function render_newsletter_attachment_list_empty() {
+        global $OUTPUT;
+        $output = '';
+        $output .= html_writer::start_tag('div', array('class' => 'mod_newsletter__attachment_list'));
+        $output .= html_writer::start_tag('h3');
+        $output .= get_string('attachments_no', 'mod_newsletter');
+        $output .= html_writer::end_tag('h3');
+        $output .= html_writer::end_tag('div');
+        return $output;
+    }
+
 
     public function render_newsletter_action_link(newsletter_action_link $link) {
         $output = '';
